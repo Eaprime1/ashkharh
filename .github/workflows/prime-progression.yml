@@ -74,15 +74,16 @@ jobs:
 
           while IFS= read -r file; do
             [[ "$file" == *.md ]] || continue
+            [[ "$(basename "$file")" == "README.md" ]] && continue
             [[ -f "$file" ]] || continue
 
             has_story=false
             has_status=false
             has_next=false
 
-            grep -qi "## STORY"       "$file" && has_story=true
-            grep -qi "## STATUS"      "$file" && has_status=true
-            grep -qi "## NEXT ACTION" "$file" && has_next=true
+            grep -qE "^## STORY[[:space:]]*$"       "$file" && has_story=true
+            grep -qE "^## STATUS[[:space:]]*$"      "$file" && has_status=true
+            grep -qE "^## NEXT ACTION[[:space:]]*$" "$file" && has_next=true
 
             if [[ "$has_story" == false || "$has_status" == false || "$has_next" == false ]]; then
               MISSING_TRIADIC+=("$file")
@@ -126,20 +127,18 @@ jobs:
             STATUS_LINE="**Triadic Pattern Check**: ⚠️ One or more documents are missing required Triadic sections: ${MISSING_FILES}"
           fi
 
-          BODY="## 🎭 Prime Progression — Triadic Review
+          gh pr comment "$PR_NUMBER" --body "## 🎭 Prime Progression — Triadic Review
 
-          **Chain of Custody**: This PR modifies Play-layer documents and has been witnessed by the Prime Progression workflow.
+**Chain of Custody**: This PR modifies Play-layer documents and has been witnessed by the Prime Progression workflow.
 
-          **Changed files:**
-          \`\`\`
-          ${CHANGED}
-          \`\`\`
+**Changed files:**
+\`\`\`
+${CHANGED}
+\`\`\`
 
-          ${STATUS_LINE}
+${STATUS_LINE}
 
-          _Enjoy the journey._"
-
-          gh pr comment "$PR_NUMBER" --body "$BODY"
+_Enjoy the journey._"
 
       - name: Fail if Triadic pattern not satisfied
         if: steps.triadic.outputs.triadic_passed == 'false'
