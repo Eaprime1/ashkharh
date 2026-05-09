@@ -1,0 +1,137 @@
+name: Prime Progression
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'characters/**'
+      - 'concepts/**'
+      - 'locations/**'
+      - 'narratives/**'
+      - 'systems/**'
+  workflow_dispatch:
+
+concurrency:
+  group: prime-progression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  triadic-check:
+    name: Triadic Pattern Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed Play files
+        id: changes
+        run: |
+          echo "## 🎭 Prime Progression — Chain of Custody Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            -- 'characters/**' 'concepts/**' 'locations/**' 'narratives/**' 'systems/**' \
+            2>/dev/null || true)
+
+          if [ -z "$FILES" ]; then
+            echo "No Play-layer files changed in this PR." >> "$GITHUB_STEP_SUMMARY"
+            echo "changed_files=" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$FILES" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "**Changed Play files:**" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$FILES" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Validate Triadic pattern in changed files
+        id: triadic
+        if: steps.changes.outputs.changed_files != ''
+        run: |
+          set -euo pipefail
+
+          MISSING_TRIADIC=()
+
+          while IFS= read -r file; do
+            [[ "$file" == *.md ]] || continue
+            [[ -f "$file" ]] || continue
+
+            has_story=false
+            has_status=false
+            has_next=false
+
+            grep -qi "## STORY"       "$file" && has_story=true
+            grep -qi "## STATUS"      "$file" && has_status=true
+            grep -qi "## NEXT ACTION" "$file" && has_next=true
+
+            if [[ "$has_story" == false || "$has_status" == false || "$has_next" == false ]]; then
+              MISSING_TRIADIC+=("$file")
+            fi
+          done <<< "${{ steps.changes.outputs.changed_files }}"
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ ${#MISSING_TRIADIC[@]} -gt 0 ]; then
+            echo "### ⚠️ STORY / STATUS / NEXT ACTION — Missing Sections" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The following files are missing one or more required Triadic sections:" >> "$GITHUB_STEP_SUMMARY"
+            MISSING_LIST=""
+            for f in "${MISSING_TRIADIC[@]}"; do
+              echo "- \`$f\`" >> "$GITHUB_STEP_SUMMARY"
+              MISSING_LIST="${MISSING_LIST} $f"
+            done
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Every Play-layer document must contain **## STORY**, **## STATUS**, and **## NEXT ACTION** sections." >> "$GITHUB_STEP_SUMMARY"
+            echo "triadic_passed=false" >> "$GITHUB_OUTPUT"
+            echo "missing_files=${MISSING_LIST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "### ✅ Triadic Pattern Satisfied" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "All changed Play-layer files contain STORY, STATUS, and NEXT ACTION sections." >> "$GITHUB_STEP_SUMMARY"
+            echo "triadic_passed=true" >> "$GITHUB_OUTPUT"
+            echo "missing_files=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post PR comment with Triadic summary
+        if: github.event_name == 'pull_request' && steps.changes.outputs.changed_files != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CHANGED: ${{ steps.changes.outputs.changed_files }}
+          TRIADIC_PASSED: ${{ steps.triadic.outputs.triadic_passed }}
+          MISSING_FILES: ${{ steps.triadic.outputs.missing_files }}
+        run: |
+          if [[ "$TRIADIC_PASSED" == "true" ]]; then
+            STATUS_LINE="**Triadic Pattern Check**: All changed documents satisfy STORY / STATUS / NEXT ACTION. ✅"
+          else
+            STATUS_LINE="**Triadic Pattern Check**: ⚠️ One or more documents are missing required Triadic sections: ${MISSING_FILES}"
+          fi
+
+          BODY="## 🎭 Prime Progression — Triadic Review
+
+          **Chain of Custody**: This PR modifies Play-layer documents and has been witnessed by the Prime Progression workflow.
+
+          **Changed files:**
+          \`\`\`
+          ${CHANGED}
+          \`\`\`
+
+          ${STATUS_LINE}
+
+          _Enjoy the journey._"
+
+          gh pr comment "$PR_NUMBER" --body "$BODY"
+
+      - name: Fail if Triadic pattern not satisfied
+        if: steps.triadic.outputs.triadic_passed == 'false'
+        run: |
+          echo "::error::One or more Play-layer documents are missing STORY, STATUS, or NEXT ACTION sections."
+          exit 1
