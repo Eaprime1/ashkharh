@@ -36,9 +36,20 @@ jobs:
           echo "## 🎭 Prime Progression — Chain of Custody Report" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
-            -- 'characters/**' 'concepts/**' 'locations/**' 'narratives/**' 'systems/**' \
-            2>/dev/null || true)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.sha }}"
+          else
+            HEAD_SHA="$(git rev-parse HEAD)"
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              BASE_SHA="$(git rev-parse HEAD^)"
+            else
+              BASE_SHA="$(git hash-object -t tree /dev/null)"
+            fi
+          fi
+
+          FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" \
+            -- 'characters/**' 'concepts/**' 'locations/**' 'narratives/**' 'systems/**')
 
           if [ -z "$FILES" ]; then
             echo "No Play-layer files changed in this PR." >> "$GITHUB_STEP_SUMMARY"
