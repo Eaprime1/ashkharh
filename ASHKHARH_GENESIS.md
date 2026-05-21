@@ -37,7 +37,7 @@ Concept born
 
 ashkharh is the pinnacle folder. The Domos login. The place you go when the concept is no longer a draft.
 
-What gets ashkharh's prima attention:
+What gets ashkharh's primary attention:
 1. **Is the incoming concept complete?** (incubator ✓, radix ✓, unexusi ✓)
 2. **What does it need to connect to that already lives here?**
 3. **What does its presence change for the whole?**
