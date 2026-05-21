@@ -134,7 +134,7 @@ Quick inventory:
 | `ethicalcheck.yml` | OWASP ZAP scan | Keep — already hardened by radix |
 | `apisec-scan.yml` | API security | Review — scope TBD |
 | `synopsys-action.yml` | Black Duck scan | Review — may need license |
-| `codacy.yml` | Code quality | Review — redundant with CodeQL? |
+| `codacy.yml` | Code quality | Keep — complements CodeQL with style and quality checks |
 | `python-app.yml` | Python CI | Review — is Python the language? |
 | `nextjs.yml` | Next.js build | Review — is this a Next.js project? |
 | `webpack.yml` | Webpack build | Review — same question |
