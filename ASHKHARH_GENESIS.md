@@ -174,7 +174,7 @@ In order of urgency:
 
 ## IX. A Note to the Future Reader of This Document
 
-This was written on Day 2 of ashkharh's life, May 2026.
+This was written on Day 9 of ashkharh's life, May 2026.
 
 At this moment:
 - One commit exists.
